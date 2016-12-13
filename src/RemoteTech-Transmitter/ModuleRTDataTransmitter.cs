@@ -1,4 +1,5 @@
 ﻿using CommNet;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
@@ -16,9 +17,9 @@ namespace RemoteTech.Transmitter
     public class ModuleRTDataTransmitter : ModuleDataTransmitter, IRelayEnabler
     {
         // TODO: move this to settings?
-        private static readonly double stockToRTTelemetryConsumptionFactor = 0.1;
-        private static readonly double stockToRTTransmitConsumptionFactor = 0.25;
-        private static readonly double stockToRTTransmitDataRateFactor = 0.25;
+        private static readonly double stockToRTTelemetryConsumptionFactor = 0.05;
+        private static readonly double stockToRTTransmitConsumptionFactor = 0.2;
+        private static readonly double stockToRTTransmitDataRateFactor = 0.2;
 
         [KSPField]
         public double telemetryConsumptionRate = 0.1;
@@ -74,15 +75,15 @@ namespace RemoteTech.Transmitter
             // generate our values if they're missing in cfg (eg. module replacement MM with no content change)
             if (!node.HasValue("transmitConsumptionRate"))
             {
-                transmitConsumptionRate = packetResourceCost / packetInterval * stockToRTTransmitConsumptionFactor;
+                transmitConsumptionRate = Math.Max(Math.Round((packetResourceCost / packetInterval) * stockToRTTransmitConsumptionFactor, 3), 0.001);
             }
             if (!node.HasValue("telemetryConsumptionRate"))
             {
-                telemetryConsumptionRate = transmitConsumptionRate * stockToRTTelemetryConsumptionFactor;
+                telemetryConsumptionRate = Math.Max(Math.Round(transmitConsumptionRate * stockToRTTelemetryConsumptionFactor, 3), 0.001);
             }
             if (!node.HasValue("transmitDataRate"))
             {
-                transmitDataRate = packetSize / packetInterval * stockToRTTransmitDataRateFactor;
+                transmitDataRate = Math.Max(Math.Round((packetSize / packetInterval) * stockToRTTransmitDataRateFactor, 3), 0.001);
             }
             // this assumes stock is setting resource consumption rate to 1.0
             for (var i = 0; i < resHandler.inputResources.Count; i++)
@@ -144,26 +145,31 @@ namespace RemoteTech.Transmitter
                 //Events["EnableAntenna"].active = true;
                 //Events["DisableAntenna"].active = true;
             }
-            var name = string.Empty;
+            else
+            {
+                Actions["ToggleAntennaAction"].active = false;
+                Actions["EnableAntennaAction"].active = false;
+                Actions["DisableAntennaAction"].active = false;
+            }
             if (antennaGUIName.Length > 0)
             {
-                name = " (" + antennaGUIName + ")";
+                var name = " (" + antennaGUIName + ")";
+
+                Events["ToggleAntenna"].guiName += name;
+                Events["EnableAntenna"].guiName += name;
+                Events["DisableAntenna"].guiName += name;
+                Events["StartTransmission"].guiName += name;
+                Events["StopTransmission"].guiName += name;
+
+                Actions["ToggleAntennaAction"].guiName += name;
+                Actions["EnableAntennaAction"].guiName += name;
+                Actions["DisableAntennaAction"].guiName += name;
+                Actions["StartTransmissionAction"].guiName += name;
+
+                Fields["statusText"].guiName += name;
+                Fields["powerText"].guiName += name;
+                Fields["incompleteAllowed"].guiName += name;
             }
-            Events["ToggleAntenna"].guiName += name;
-            Events["EnableAntenna"].guiName += name;
-            Events["DisableAntenna"].guiName += name;
-            Events["StartTransmission"].guiName += name;
-            Events["StopTransmission"].guiName += name;
-            
-            Actions["ToggleAntennaAction"].guiName += name;
-            Actions["EnableAntennaAction"].guiName += name;
-            Actions["DisableAntennaAction"].guiName += name;
-            Actions["StartTransmissionAction"].guiName += name;
-
-            Fields["statusText"].guiName += name;
-            Fields["powerText"].guiName += name;
-            Fields["incompleteAllowed"].guiName += name;
-
             Events["TransmitIncompleteToggle"].active = false;
             Events["TransmitIncompleteToggle"].guiActive = false;
             Events["TransmitIncompleteToggle"].guiActiveEditor = false;
