@@ -485,7 +485,7 @@ namespace RemoteTech.Transmitter
         }
 
         /// <summary>
-        ///     On-rail function to deplete the vessel's resource for having this antenna activated
+        ///     On-rail function to check and consume the vessel's resource for this antenna activated or active transmission of data
         /// </summary>
         private void ProcessPower()
         {
