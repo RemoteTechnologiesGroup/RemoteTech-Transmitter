@@ -81,7 +81,7 @@ namespace RemoteTech.Transmitter
         {
             get
             {
-                return transmitConsumption;
+                return transmitConsumption / bandwidth;
             }
         }
 
@@ -160,8 +160,8 @@ namespace RemoteTech.Transmitter
                     }
                     if (!found)
                     {
-                        // throw exception?
                         // TaxiService: log this error to output.txt?
+                        // Yuki: log through RT logger
                     }
                 }
             }
@@ -307,7 +307,8 @@ namespace RemoteTech.Transmitter
 
         /// <summary>
         ///     Unity Engine invokes this method once, zero or several times per frame. Useful for regular
-        ///     and uniform interval of calculations regardless of player's framerate
+        ///     and uniform interval of calculations regardless of player's framerate.
+        ///     Generally used for physics and other game mechanics.
         /// </summary>
         public void FixedUpdate()
         {
@@ -317,6 +318,7 @@ namespace RemoteTech.Transmitter
 
         /// <summary>
         ///     Unity Engine invokes this method exactly once per frame.
+        ///     Genereally used for GUI and similar. Not bound to "ingame" time in any way.
         /// </summary>
         public void Update()
         {
@@ -332,6 +334,7 @@ namespace RemoteTech.Transmitter
 
         /// <summary>
         ///     Display a looped sequence of data packets over time to a player
+        ///     In RT, this sends data as a "stream" instead of chunks, moving small ammounts every fixed update.
         /// </summary>
         /// <param name="transmitInterval"></param>
         /// <param name="dataPacketSize"></param>
@@ -478,7 +481,7 @@ namespace RemoteTech.Transmitter
         }
 
         /// <summary>
-        ///     On-rail function to check and consume the vessel's resource for this antenna activated or active transmission of data
+        ///     Check and consume the vessel's resource for this antenna activated or active transmission of data.
         /// </summary>
         private void ProcessPower()
         {
@@ -515,7 +518,7 @@ namespace RemoteTech.Transmitter
         }
 
         /// <summary>
-        ///     On-rail function to keep the relevant antenna information updated at all times
+        ///     Check and update antenna status from fxmodules' state
         /// </summary>
         private void CheckDeployed()
         {
@@ -543,7 +546,7 @@ namespace RemoteTech.Transmitter
         }
 
         /// <summary>
-        ///     On-rail function to keep the relevant antenna information updated at all times
+        ///     Function to keep the relevant antenna information in context menu updated at all times
         /// </summary>
         private void UpdateContextMenu()
         {
