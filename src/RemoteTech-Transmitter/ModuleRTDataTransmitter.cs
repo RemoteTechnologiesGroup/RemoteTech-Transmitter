@@ -1,9 +1,9 @@
 ﻿//using CommNet;
 using System;
 using System.Collections;
-//using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
+//using System.Linq;
 using System.Text;
 using UnityEngine;
 
@@ -37,6 +37,9 @@ namespace RemoteTech.Transmitter
         [KSPField(isPersistant = true)]
         public bool antennaEnabled = false;
 
+        [KSPField(isPersistant = true)]
+        public bool antennaDeployed = false;
+
         [KSPField]
         public bool invertedDeployment = false;
 
@@ -44,7 +47,10 @@ namespace RemoteTech.Transmitter
         public bool allowToggle = false;
 
         [KSPField]
-        public string antennaGUIName = string.Empty;
+        public string transmitterGUIName = string.Empty;
+
+        [KSPField]
+        public string transmitterName = string.Empty;
 
         [KSPField]
         public string antennaModuleNames = string.Empty;
@@ -59,9 +65,15 @@ namespace RemoteTech.Transmitter
         private float showProgressInterval = 2f;
         private float timeElapsed = 0f;
         private bool inFlight = false;
-        private bool antennaDeployed = false;
         private string toggleOnText = "Turn Antenna On";
         private string toggleOffText = "Turn Antenna Off";
+        private double basePower;
+        private List<Multiplier> powerMultipliers;
+        private double totalPowerMult = 1;
+        private List<Multiplier> bandwidthMultipliers;
+        private double totalBandwidthMult = 1;
+        private List<Multiplier> consumptionMultipliers;
+        private double totalConsumptionMult = 1;
 
         /// <summary>
         ///     Return the transmission-data rate of a specific antenna
@@ -70,7 +82,7 @@ namespace RemoteTech.Transmitter
         {
             get
             {
-                return (float)bandwidth;
+                return (float)(bandwidth * totalBandwidthMult);
             }
         }
 
@@ -81,7 +93,7 @@ namespace RemoteTech.Transmitter
         {
             get
             {
-                return transmitConsumption / bandwidth;
+                return (transmitConsumption * totalConsumptionMult) / (bandwidth * totalBandwidthMult);
             }
         }
 
@@ -119,18 +131,14 @@ namespace RemoteTech.Transmitter
             {
                 resHandler.inputResources[i].rate *= telemetryConsumption;
             }
-            if (node.HasValue("antennaDeployed"))
-            {
-                bool.TryParse(node.GetValue("antennaDeployed"), out antennaDeployed);
-            }
             antennaModules = antennaModuleNames.Split(new char[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
             isDeployable = (antennaModules.Length > 0) || (DeployFxModuleIndices != null && DeployFxModuleIndices.Length > 0);
+            basePower = antennaPower;
         }
 
         public override void OnSave(ConfigNode node)
         {
             base.OnSave(node);
-            node.AddValue("antennaDeployed", antennaDeployed);
         }
 
         /// <summary>
@@ -187,9 +195,9 @@ namespace RemoteTech.Transmitter
             {
                 Fields["incompleteAllowed"].guiActive = false;
             }
-            if (antennaGUIName.Length > 0)
+            if (transmitterGUIName.Length > 0)
             {
-                var name = " (" + antennaGUIName + ")";
+                var name = " (" + transmitterGUIName + ")";
 
                 Events["ToggleAntenna"].guiName += name;
                 //Events["EnableAntenna"].guiName += name;
@@ -206,8 +214,8 @@ namespace RemoteTech.Transmitter
                 Fields["powerText"].guiName += name;
                 Fields["incompleteAllowed"].guiName += name;
 
-                toggleOnText = "Turn " + antennaGUIName + " On";
-                toggleOffText = "Turn " + antennaGUIName + " Off";
+                toggleOnText = "Turn " + transmitterGUIName + " On";
+                toggleOffText = "Turn " + transmitterGUIName + " Off";
             }
             Events["TransmitIncompleteToggle"].active = false;
             Events["TransmitIncompleteToggle"].guiActive = false;
@@ -353,7 +361,7 @@ namespace RemoteTech.Transmitter
             Events["StopTransmission"].active = true;
             Events["StartTransmission"].active = false;
 
-            while (transmissionQueue.Any() && !xmitAborted)
+            while (transmissionQueue.Count > 0 && !xmitAborted)
             {
                 var dataThrough = 0.0f;
                 var progress = 0.0f;
@@ -386,7 +394,7 @@ namespace RemoteTech.Transmitter
                 while (dataThrough < dataAmount && !xmitAborted && CanTransmit())
                 {
                     yield return new WaitForFixedUpdate();
-                    var pushData = (float)(TimeWarp.fixedDeltaTime * bandwidth);
+                    var pushData = (float)(TimeWarp.fixedDeltaTime * bandwidth * totalBandwidthMult);
                     commStream.StreamData(pushData, vessel.protoVessel);
                     dataThrough += pushData;
                     progress = dataThrough / dataAmount;
@@ -397,6 +405,11 @@ namespace RemoteTech.Transmitter
                         ScreenMessages.PostScreenMessage(progressMessage);
                         timeElapsed -= showProgressInterval;
                     }
+                }
+                if (!CanTransmit())
+                {
+                    AbortTransmission("Connection lost!");
+                    yield return null;
                 }
                 if (dataThrough < dataAmount && dataThrough > 0 && xmitIncomplete)
                 {
@@ -411,7 +424,7 @@ namespace RemoteTech.Transmitter
                     ScreenMessages.PostScreenMessage(string.Format("[{0}]: Transmission of {1} completed.", part.partInfo.title, scienceData.title), 4f, ScreenMessageStyle.UPPER_LEFT);
                 }
             }
-            if (xmitAborted && transmissionQueue.Any())
+            if (xmitAborted && transmissionQueue.Count > 0)
             {
                 foreach (var data in transmissionQueue)
                 {
@@ -467,6 +480,116 @@ namespace RemoteTech.Transmitter
         //    SetAntennaState(false);
         //}
 
+        public void SetPowerMultiplier(string name, double value)
+        {
+            totalPowerMult = 1;
+            var found = false;
+            for (var i= 0; i < powerMultipliers.Count; i++)
+            {
+                if (powerMultipliers[i].Name == name)
+                {
+                    found = true;
+                    powerMultipliers[i].Value = value;
+                }
+                totalPowerMult *= powerMultipliers[i].Value;
+            }
+            if (!found)
+            {
+                powerMultipliers.Add(new Multiplier(name, value));
+                totalPowerMult *= value;
+            }
+            antennaPower = basePower * totalPowerMult;
+        }
+
+        public void SetBandwidthMultiplier(string name, double value)
+        {
+            totalBandwidthMult = 1;
+            var found = false;
+            for (var i = 0; i < bandwidthMultipliers.Count; i++)
+            {
+                if (bandwidthMultipliers[i].Name == name)
+                {
+                    found = true;
+                    bandwidthMultipliers[i].Value = value;
+                }
+                totalBandwidthMult *= bandwidthMultipliers[i].Value;
+            }
+            if (!found)
+            {
+                bandwidthMultipliers.Add(new Multiplier(name, value));
+                totalBandwidthMult *= value;
+            }
+        }
+
+        public void SetConsumptionMultiplier(string name, double value)
+        {
+            totalConsumptionMult = 1;
+            var found = false;
+            for (var i = 0; i < consumptionMultipliers.Count; i++)
+            {
+                if (consumptionMultipliers[i].Name == name)
+                {
+                    found = true;
+                    consumptionMultipliers[i].Value = value;
+                }
+                totalConsumptionMult *= consumptionMultipliers[i].Value;
+            }
+            if (!found)
+            {
+                consumptionMultipliers.Add(new Multiplier(name, value));
+                totalConsumptionMult *= value;
+            }
+        }
+
+        public void RemovePowerMultiplier(string name)
+        {
+            totalPowerMult = 1;
+            for( var i = powerMultipliers.Count - 1; i>=0; i--)
+            {
+                if (powerMultipliers[i].Name == name)
+                {
+                    powerMultipliers.RemoveAt(i);
+                }
+                else
+                {
+                    totalPowerMult *= powerMultipliers[i].Value;
+                }
+            }
+            antennaPower = basePower * totalPowerMult;
+        }
+
+        public void RemoveBandwidthMultiplier(string name)
+        {
+            totalBandwidthMult = 1;
+            for (var i = bandwidthMultipliers.Count - 1; i >= 0; i--)
+            {
+                if (bandwidthMultipliers[i].Name == name)
+                {
+                    bandwidthMultipliers.RemoveAt(i);
+                }
+                else
+                {
+                    totalBandwidthMult *= bandwidthMultipliers[i].Value;
+                }
+            }
+        }
+
+        public void RemoveConsumptionMultiplier(string name)
+        {
+            totalConsumptionMult = 1;
+            for (var i = consumptionMultipliers.Count - 1; i >= 0; i--)
+            {
+                if (consumptionMultipliers[i].Name == name)
+                {
+                    consumptionMultipliers.RemoveAt(i);
+                }
+                else
+                {
+                    totalConsumptionMult *= consumptionMultipliers[i].Value;
+                }
+            }
+        }
+
         /// <summary>
         ///     Toggle the part action(s) of a specific antenna (RT function)
         /// </summary>
@@ -493,7 +616,7 @@ namespace RemoteTech.Transmitter
                     var resAvailable = 1.0d;
                     if (busy)
                     {
-                        resAvailable = resHandler.UpdateModuleResourceInputs(ref resErrorMsg, transmitConsumption / telemetryConsumption, 0.99, true, false, true);
+                        resAvailable = resHandler.UpdateModuleResourceInputs(ref resErrorMsg, (transmitConsumption / telemetryConsumption) * totalConsumptionMult, 0.99, true, false, true);
                         if (resAvailable < 0.99)
                         {
                             AbortTransmission(resErrorMsg);
@@ -501,7 +624,7 @@ namespace RemoteTech.Transmitter
                     }
                     if (!busy || resAvailable < 0.99)
                     {
-                        resAvailable = resHandler.UpdateModuleResourceInputs(ref resErrorMsg, 1.0, 0.99, true, false, true);
+                        resAvailable = resHandler.UpdateModuleResourceInputs(ref resErrorMsg, totalConsumptionMult, 0.99, true, false, true);
                         if (resAvailable < 0.99)
                         {
                             SetAntennaState(false);
