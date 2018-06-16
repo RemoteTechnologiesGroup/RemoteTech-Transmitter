@@ -7,6 +7,9 @@ namespace RemoteTech.Transmitter
 {
     public class RemoteTechTransmitterParams : GameParameters.CustomParameterNode
     {
+        [GameParameters.CustomStringParameterUI("", autoPersistance = false, lines = 3)]
+        public string description = "To use stock antennas, delete 'RemoteTech-Transmitter' from RemoteTech's main folder";
+        
         [GameParameters.CustomFloatParameterUI("Consumption Multiplier: ", toolTip = "If set to a value other than 1, the power consumption of all antennas will be increased or decreased by this factor.\nDoes not affect energy consumption for science transmissions.", minValue = 0f, maxValue = 2f, stepCount = 10, displayFormat = "F2")]
         public float ConsumptionMultiplier = 1f;
 
@@ -58,7 +61,7 @@ namespace RemoteTech.Transmitter
         {
             get
             {
-                return "Transmitters";
+                return "Advanced Antennas";
             }
         }
     }
