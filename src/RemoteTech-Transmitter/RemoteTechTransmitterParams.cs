@@ -16,6 +16,11 @@ namespace RemoteTech.Transmitter
         [GameParameters.CustomFloatParameterUI("Multiple Antenna Multiplier", toolTip = "Multiple omnidirectional antennas on the same craft work together.\nThe default value of 0 means this is disabled.\nThe largest value of 1.0 sums the range of all omnidirectional antennas to provide a greater effective range.\nThe effective range scales linearly and this option works with both the Standard and Root range models.", minValue = 0f, maxValue = 1f, stepCount = 10, displayFormat = "F2")]
         public float MultipleAntennaMultiplier = 0f;
 
+        [GameParameters.CustomFloatParameterUI("Max Omni Range Cap", toolTip = "This maximum boosted range is capped at the multiplication of original range and this factor.", minValue = 1f, maxValue = 100f, stepCount = 10)]
+        public double OmniRangeClampFactor = 100;
+
+        [GameParameters.CustomFloatParameterUI("Max Dish Range Cap", toolTip = "This maximum boosted range is capped at the multiplication of original range and this factor.", minValue = 1f, maxValue = 1000f, stepCount = 100)]
+        public double DishRangeClampFactor = 1000;
 
         public override string DisplaySection
         {
