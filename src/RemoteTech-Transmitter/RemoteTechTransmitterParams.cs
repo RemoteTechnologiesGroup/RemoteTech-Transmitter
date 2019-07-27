@@ -1,12 +1,21 @@
-﻿using System;
+﻿using RemoteTech.Common;
+using RemoteTech.Transmitter.ShannonHartley;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace RemoteTech.Transmitter
 {
     public class RemoteTechTransmitterParams : GameParameters.CustomParameterNode
     {
+        [Persistent(collectionIndex = "CelestialBodies")]
+        public List<ShannonHartley.CelestialBody> CelestialBodies = new List<ShannonHartley.CelestialBody>();
+
+        [Persistent]
+        public string RadioBandName;
+
+        [Persistent(collectionIndex = "RadioBands")]
+        public List<RadioBand> RadioBands = new List<RadioBand>();
+
         [GameParameters.CustomStringParameterUI("", autoPersistance = false, lines = 3)]
         public string description = "To use stock antennas, delete 'RemoteTech-Transmitter' from RemoteTech's main folder";
         
@@ -67,6 +76,52 @@ namespace RemoteTech.Transmitter
             get
             {
                 return "Advanced Antennas";
+            }
+        }
+
+        protected static string _configDirectory = null;
+        protected string configDirectory
+        {
+            get
+            {
+                if (_configDirectory == null)
+                {
+                    _configDirectory = AssemblyLoader.loadedAssemblies.FirstOrDefault(a => a.assembly.GetName().Name.Equals("RemoteTech-Transmitter")).url.Replace("/Plugins", "") + "/Configs/";
+                }
+                return _configDirectory;
+            }
+        }
+
+        public override void OnLoad(ConfigNode node)
+        {
+            base.OnLoad(node);
+
+            UrlDir.UrlConfig[] cfgs;
+
+            cfgs = GameDatabase.Instance.GetConfigs("RemoteTechTNGCelestialBodyData");
+            for (int i = 0; i < cfgs.Length; i++)
+            {
+                if (cfgs[i].url.Equals(configDirectory + "CelestialBodyData/RemoteTechTNGCelestialBodyData"))
+                {
+                    if (!ConfigNode.LoadObjectFromConfig(this, cfgs[i].config))
+                    {
+                        Logging.Error("Unable to load CelestialBodyData.cfg");
+                    }
+                    break;
+                }
+            }
+
+            cfgs = GameDatabase.Instance.GetConfigs("RemoteTechTNGRadioBands");
+            for (int i = 0; i < cfgs.Length; i++)
+            {
+                if (cfgs[i].url.Equals(configDirectory + "RadioBands/RemoteTechTNGRadioBands"))
+                {
+                    if(!ConfigNode.LoadObjectFromConfig(this, cfgs[i].config))
+                    {
+                        Logging.Error("Unable to load RadioBands.cfg");
+                    }
+                    break;
+                }
             }
         }
     }

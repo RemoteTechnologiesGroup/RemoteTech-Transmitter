@@ -54,7 +54,10 @@
     <Compile Include="ModuleRTDeployableAntenna.cs" />
     <Compile Include="Multiplier.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="RangeModels\RangeModelShannonHartley.cs" />
     <Compile Include="RemoteTechTransmitterParams.cs" />
+    <Compile Include="ShannonHartley\CelestialBody.cs" />
+    <Compile Include="ShannonHartley\RadioBand.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
