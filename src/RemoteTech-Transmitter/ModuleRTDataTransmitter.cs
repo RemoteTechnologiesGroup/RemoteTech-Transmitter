@@ -26,6 +26,12 @@ namespace RemoteTech.Transmitter
         public double transmitConsumption = 5.0;
 
         [KSPField]
+        public double telemetryPacketResourceCost = 0.25;
+
+        [KSPField]
+        public double transmitPacketResourceCost = 1.0;
+
+        [KSPField]
         public double bandwidth = 0.25;
 
         [KSPField(isPersistant = true)]
@@ -56,7 +62,7 @@ namespace RemoteTech.Transmitter
         public double CosAngle = -1.0; //by default, disabled until third-party mod enables it via MM
 
         [KSPField]
-        public RemoteTechAntennaType customAntennaType = RemoteTechAntennaType.OMNI;
+        public RemoteTechAntennaType customAntennaType = RemoteTechAntennaType.OMNI; //default value
 
         [KSPField]
         public Guid AntennaTarget = Guid.Empty;
@@ -162,14 +168,17 @@ namespace RemoteTech.Transmitter
 
             base.OnLoad(node);
 
+            //base transmit resource cost on the stock cost
+            transmitPacketResourceCost = packetResourceCost;
+
             // generate our values if they're missing in cfg (eg. module replacement MM with no content change)
             if (!node.HasValue("transmitConsumptionRate"))
             {
-                transmitConsumption = Math.Max(Math.Round((packetResourceCost / packetInterval), 3), 0.001);
+                transmitConsumption = Math.Max(Math.Round((transmitPacketResourceCost / packetInterval), 3), 0.001);
             }
             if (!node.HasValue("telemetryConsumptionRate"))
             {
-                telemetryConsumption = Math.Max(Math.Round(transmitConsumption, 3), 0.001);
+                telemetryConsumption = Math.Max(Math.Round((telemetryPacketResourceCost / packetInterval), 3), 0.001);
             }
             if (!node.HasValue("transmitDataRate"))
             {
@@ -178,7 +187,7 @@ namespace RemoteTech.Transmitter
             // this assumes stock is setting resource consumption rate to 1.0
             for (var i = 0; i < resHandler.inputResources.Count; i++)
             {
-                resHandler.inputResources[i].rate *= telemetryConsumption;
+                resHandler.inputResources[i].rate = telemetryConsumption;
             }
 
             antennaModules = antennaModuleNames.Split(new char[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
@@ -299,20 +308,46 @@ namespace RemoteTech.Transmitter
 
             if (customAntennaType != RemoteTechAntennaType.INTERNAL)
             {
-                //text.AppendLine();
                 text.Append("<b>Bandwidth: </b>");
                 text.AppendLine(bandwidth.ToString("###0.### Mits/s"));
             }
 
-            //text.AppendLine();
-            text.Append("<b><color=orange>Active antenna requires:");
+            if (customAntennaType != RemoteTechAntennaType.INTERNAL)
+            {
+                text.Append("<b>Launch state: </b>");
+                if (antennaEnabled)
+                {
+                    if (antennaDeployed)
+                    {
+                        text.AppendLine("<color=green>Deployed, Ready</color>");
+                    }
+                    else
+                    {
+                        text.AppendLine("<color=green>Ready</color>");
+                    }
+                }
+                else
+                {
+                    if (antennaDeployed)
+                    {
+                        text.AppendLine("<color=red>Deployed, Off</color>");
+                    }
+                    else
+                    {
+                        text.AppendLine("<color=red>Not deployed, Off</color>");
+                    }
+                }
+            }
+
+            text.Append("\n");
+            text.Append("<b><color=orange>Active antenna requires:</b>");
             var tmpText = resHandler.PrintModuleResources(telemetryConsumption);
             var index = tmpText.IndexOf(":");
             text.AppendLine(tmpText.Substring(index + 1, tmpText.Length - index - Environment.NewLine.Length));
 
             if (customAntennaType != RemoteTechAntennaType.INTERNAL)
             {
-                text.Append("<b><color=orange>Science transmission requires:");
+                text.Append("<b><color=orange>Science transmission requires:</b>");
                 tmpText = resHandler.PrintModuleResources(transmitConsumption);
                 index = tmpText.IndexOf(":");
                 text.AppendLine(tmpText.Substring(index + 1, tmpText.Length - index - Environment.NewLine.Length));
@@ -320,14 +355,6 @@ namespace RemoteTech.Transmitter
             else
             {
                 text.Append("<b><color=orange>Cannot transmit Science</color></b>");
-            }
-            if (antennaEnabled)
-            {
-                text.Append("<b><color=#a0a0a0ff>Enabled by default</color></b>");
-            }
-            else
-            {
-                text.Append("<b><color=#a0a0a0ff>Disabled by default</color></b>");
             }
             return text.ToString();
         }
